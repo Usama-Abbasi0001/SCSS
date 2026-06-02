@@ -63,7 +63,7 @@ export default function ParentNotifications() {
       id: alert.id,
       type: 'alert' as const,
       title: 'Emergency Alert',
-      message: alert.message,
+      message: alert.message ?? '',
       timestamp: alert.timestamp,
       read: alert.status === 'resolved'
     })),

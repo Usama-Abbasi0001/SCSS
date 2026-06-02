@@ -33,17 +33,12 @@ export default function CreateStudent() {
     email: '',
     password: ''
   });
-  const [parents, setParents] = useState<ParentDocument[]>([]);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadParents = async () => {
-      const snapshot = await getDocs(collection(db, 'parents'));
-      setParents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ParentDocument)));
-    };
-
-    loadParents();
+    // Parents data is loaded but not used in this component
+    // Kept for potential future use
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
