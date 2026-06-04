@@ -56,8 +56,8 @@ export default function StudentAlerts() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Alert History</h1>
-        <p className="text-gray-600 mt-2">View all your past alerts and notifications</p>
+        <h1 className="text-3xl font-bold text-white">Alert History</h1>
+        <p className="text-slate-300 mt-2">View all your past alerts and notifications</p>
       </div>
 
       {studentAlerts.length > 0 ? (
@@ -112,8 +112,8 @@ export default function StudentAlerts() {
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12">
           <div className="text-center">
-            <div className="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-10 h-10 text-gray-400" />
+            <div className="bg-slate-900/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bell className="w-10 h-10 text-slate-500" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Alerts Yet</h2>
             <p className="text-gray-600">You don't have any alert history yet. Stay safe!</p>

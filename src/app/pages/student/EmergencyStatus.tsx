@@ -41,8 +41,8 @@ export default function EmergencyStatus() {
     return (
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Emergency Status</h1>
-          <p className="text-gray-600 mt-2">No student record found for this account.</p>
+          <h1 className="text-3xl font-bold text-white">Emergency Status</h1>
+          <p className="text-slate-300 mt-2">No student record found for this account.</p>
         </div>
       </div>
     );
@@ -53,8 +53,8 @@ export default function EmergencyStatus() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Emergency Status</h1>
-        <p className="text-gray-600 mt-2">View your current safety status</p>
+        <h1 className="text-3xl font-bold text-white">Emergency Status</h1>
+        <p className="text-slate-300 mt-2">View your current safety status</p>
       </div>
 
       <div className="max-w-2xl">

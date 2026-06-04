@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserPlus, CheckCircle } from 'lucide-react';
 import {
   arrayUnion,
-  collection,
   doc,
-  getDocs,
   setDoc,
   updateDoc,
   serverTimestamp
@@ -13,7 +11,6 @@ import {
 import { db } from '../../../config/firebase';
 import { FIREBASE_API_KEY } from '../../../config/firebase';
 import { createAuthUserWithoutLogin } from '../../utils/adminAuth';
-import { ParentDocument } from '../../types/firestore';
 
 function buildStudentAuthEmail(deviceId: string) {
   const normalized = deviceId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');

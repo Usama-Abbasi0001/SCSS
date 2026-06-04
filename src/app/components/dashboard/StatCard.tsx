@@ -24,7 +24,7 @@ export default function StatCard({ title, value, icon: Icon, trend, color }: Sta
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <p className="text-sm uppercase tracking-[0.24em] text-slate-400 mb-3">{title}</p>
-          <p className="text-4xl font-semibold text-white">{value}</p>
+          <p className="text-3xl font-semibold text-white break-words truncate">{value}</p>
           {trend && (
             <p className={`mt-3 text-sm font-medium ${trend.isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {trend.isPositive ? '↑' : '↓'} {trend.value}

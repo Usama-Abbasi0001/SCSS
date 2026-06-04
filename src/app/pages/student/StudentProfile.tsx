@@ -41,8 +41,8 @@ export default function StudentProfile() {
     return (
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 mt-2">No student profile found in Firestore for this account.</p>
+          <h1 className="text-3xl font-bold text-white">My Profile</h1>
+          <p className="text-slate-300 mt-2">No student profile found in Firestore for this account.</p>
         </div>
       </div>
     );
@@ -51,8 +51,8 @@ export default function StudentProfile() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-600 mt-2">View your personal information</p>
+        <h1 className="text-3xl font-bold text-white">My Profile</h1>
+        <p className="text-slate-300 mt-2">View your personal information</p>
       </div>
 
       <div className="max-w-3xl">

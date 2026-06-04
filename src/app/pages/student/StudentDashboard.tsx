@@ -57,8 +57,8 @@ export default function StudentDashboard() {
     return (
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Student Dashboard</h1>
-          <p className="text-gray-600 mt-2">No student profile found in Firestore for this account.</p>
+          <h1 className="text-3xl font-bold text-white">Student Dashboard</h1>
+          <p className="text-slate-300 mt-2">No student profile found in Firestore for this account.</p>
         </div>
       </div>
     );
@@ -70,8 +70,8 @@ export default function StudentDashboard() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Student Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {student.name}!</p>
+        <h1 className="text-3xl font-bold text-white">Student Dashboard</h1>
+        <p className="text-slate-300 mt-2">Welcome back, {student.name}!</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

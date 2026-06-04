@@ -44,7 +44,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 async function setUserOnline(uid: string, role: string) {
   await setDoc(
     doc(db, 'userStatus', uid),
-    { status: 'active', lastActive: serverTimestamp(), role },
+    {
+      status: 'active',
+      isOnline: true,
+      lastActive: serverTimestamp(),
+      lastLogin: serverTimestamp(),
+      role
+    },
     { merge: true }
   );
 }
@@ -52,7 +58,11 @@ async function setUserOnline(uid: string, role: string) {
 async function setUserOffline(uid: string) {
   await setDoc(
     doc(db, 'userStatus', uid),
-    { status: 'inactive', lastActive: serverTimestamp() },
+    {
+      status: 'inactive',
+      isOnline: false,
+      lastActive: serverTimestamp()
+    },
     { merge: true }
   );
 }

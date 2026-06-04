@@ -15,17 +15,19 @@ import { FIREBASE_API_KEY } from '../../../config/firebase';
 import { createAuthUserWithoutLogin } from '../../utils/adminAuth';
 import { StudentDocument } from '../../types/firestore';
 
+const initialParentFormData = {
+  name: '',
+  email: '',
+  password: '',
+  phone: '',
+  address: '',
+  cnic: '',
+  linkedStudentId: ''
+};
+
 export default function CreateParent() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-    address: '',
-    cnic: '',
-    linkedStudentId: ''
-  });
+  const [formData, setFormData] = useState(initialParentFormData);
   const [students, setStudents] = useState<StudentDocument[]>([]);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -116,6 +118,12 @@ export default function CreateParent() {
       console.error('[CreateParent] error', err);
       setError(err.message || 'Unable to create parent at this time. Please try again.');
     }
+  };
+
+  const handleCloseSuccess = () => {
+    setSuccess(false);
+    setError('');
+    setFormData(initialParentFormData);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -278,7 +286,7 @@ export default function CreateParent() {
                 <p className="text-slate-400 mb-6">The parent account has been created and saved to the system.</p>
                 <div className="flex justify-center">
                   <button
-                    onClick={() => setSuccess(false)}
+                    onClick={handleCloseSuccess}
                     className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-white font-semibold shadow-lg shadow-cyan-500/20 transition hover:brightness-110"
                   >
                     Close
