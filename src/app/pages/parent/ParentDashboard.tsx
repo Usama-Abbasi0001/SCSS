@@ -1,230 +1,205 @@
-import { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../../../config/firebase';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, MapPin, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { AlertDocument, ParentDocument, StudentDocument } from '../../types/firestore';
-import DashboardStats from '../../components/parent/DashboardStats';
-import RecentActivity from '../../components/parent/RecentActivity';
-import QuickActions from '../../components/parent/QuickActions';
-import { AlertCircle } from 'lucide-react';
+import ParentAnalytics from '../../components/parent/ParentAnalytics';
+import ParentChildren from '../../components/parent/ParentChildren';
+import { parentOverviewStats } from '../../components/parent/parentDashboardData';
+import { fetchParentProfile, fetchStudentProfile, fetchStudentByParentUid, ParentProfile, StudentProfile } from '../../services/parentService';
 
 export default function ParentDashboard() {
   const { user, loading } = useAuth();
+  const [parentProfile, setParentProfile] = useState<ParentProfile | null>(null);
+  const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
 
-  // Data states
-  const [parent, setParent] = useState<ParentDocument | null>(null);
-  const [children, setChildren] = useState<StudentDocument[]>([]);
-  const [alerts, setAlerts] = useState<AlertDocument[]>([]);
-  const [userStatuses, setUserStatuses] = useState<Record<string, any>>({});
-  const [devices, setDevices] = useState<Record<string, any>>({});
-
-  // UI states
-  const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch parent data
   useEffect(() => {
-    if (!user?.id || loading) {
+    if (!user?.id) {
+      setParentProfile(null);
+      setStudent(null);
+      setLoadingDashboard(false);
       return;
     }
 
-    setDashboardLoading(true);
+    let active = true;
+    setDashboardError('');
+    setLoadingDashboard(true);
 
-    const parentRef = doc(db, 'users', user.id);
-    const unsubscribe = onSnapshot(
-      parentRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setParent({ id: snapshot.id, ...snapshot.data() } as ParentDocument);
-          setError(null);
-        } else {
-          setParent(null);
-          setError('No parent record found. Please contact support.');
-        }
-        setDashboardLoading(false);
-      },
-      (err) => {
-        console.error('[ParentDashboard] Error fetching parent:', err);
-        setError('Failed to load parent data');
-        setDashboardLoading(false);
+    const loadDashboard = async () => {
+      const profile = await fetchParentProfile(user.id);
+      console.debug('[ParentDashboard] parent profile for', user.id, profile);
+      if (!active) return;
+
+      if (!profile) {
+        setParentProfile(null);
+        setStudent(null);
+        setDashboardError('No linked student found');
+        setLoadingDashboard(false);
+        return;
       }
-    );
 
-    return unsubscribe;
-  }, [user?.id, loading]);
+      setParentProfile(profile);
+      // Try direct studentId fields first
+      let studentId = profile.studentId || profile.linkedStudentId;
+      console.debug('[ParentDashboard] extracted studentId from parent profile:', studentId);
 
-  // Fetch children data
-  useEffect(() => {
-    if (!parent?.id) {
-      setChildren([]);
-      return;
-    }
+      let studentRecord: StudentProfile | null = null;
 
-    let cancelled = false;
-
-    const childrenQuery = query(collection(db, 'students'), where('parentId', '==', parent.id));
-    const unsubscribe = onSnapshot(
-      childrenQuery,
-      async (snapshot) => {
-        const matched = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as StudentDocument));
-        if (!cancelled) {
-          setChildren(matched);
-        }
-      },
-      (err) => {
-        console.error('[ParentDashboard] Error fetching children:', err);
-        if (!cancelled) {
-          setError('Failed to load child data');
-        }
+      if (studentId) {
+        studentRecord = await fetchStudentProfile(studentId);
+        console.debug('[ParentDashboard] fetchStudentProfile result for', studentId, studentRecord);
       }
-    );
+
+      // Fallback: if no studentId or fetch failed, try querying students by parentUid
+      if (!studentRecord) {
+        console.debug('[ParentDashboard] attempting fallback query by parentUid=', user.id);
+        studentRecord = await fetchStudentByParentUid(user.id);
+        console.debug('[ParentDashboard] fetchStudentByParentUid result:', studentRecord);
+      }
+
+      if (!active) return;
+
+      if (!studentRecord) {
+        setStudent(null);
+        setDashboardError('No linked student found');
+      } else {
+        setStudent(studentRecord);
+        setDashboardError('');
+      }
+
+      setLoadingDashboard(false);
+    };
+
+    loadDashboard();
 
     return () => {
-      cancelled = true;
-      unsubscribe();
+      active = false;
     };
-  }, [parent?.id]);
+  }, [user?.id]);
 
-  // Fetch alerts for all children
-  useEffect(() => {
-    const studentIds = children.map((c) => c.uid || c.id).filter(Boolean);
-    if (studentIds.length === 0) {
-      setAlerts([]);
-      return;
-    }
+  const linkedStudent = student;
+  const studentStatus = useMemo(() => {
+    if (!linkedStudent) return 'Unknown';
+    return linkedStudent.emergencyStatus === 'active' ? 'Emergency' : 'Safe';
+  }, [linkedStudent]);
 
-    const alertsQuery = query(
-      collection(db, 'alerts'),
-      where('studentId', 'in', studentIds.slice(0, 10))
-    );
-
-    const unsubscribe = onSnapshot(
-      alertsQuery,
-      (snapshot) => {
-        setAlerts(
-          snapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() } as AlertDocument))
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        );
-      },
-      (err) => {
-        console.error('[ParentDashboard] Error fetching alerts:', err);
-      }
-    );
-
-    return unsubscribe;
-  }, [children]);
-
-  // Fetch user status (online/offline) for all children
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'userStatus'),
-      (snapshot) => {
-        const statuses: Record<string, any> = {};
-        snapshot.docs.forEach((doc) => {
-          statuses[doc.id] = doc.data();
-        });
-        setUserStatuses(statuses);
-      },
-      (err) => {
-        console.error('[ParentDashboard] Error fetching user statuses:', err);
-      }
-    );
-
-    return unsubscribe;
-  }, []);
-
-  // Fetch device status
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'devices'),
-      (snapshot) => {
-        const devicesMap: Record<string, any> = {};
-        snapshot.docs.forEach((doc) => {
-          devicesMap[doc.id] = doc.data();
-        });
-        setDevices(devicesMap);
-      },
-      (err) => {
-        console.error('[ParentDashboard] Error fetching devices:', err);
-      }
-    );
-
-    return unsubscribe;
-  }, []);
-
-  if (loading || dashboardLoading) {
+  if (loading || loadingDashboard) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex min-h-[50vh] items-center justify-center rounded-3xl border border-slate-800 bg-slate-950/90 p-10">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400 mb-4" />
-          <p className="text-slate-400">Loading your dashboard...</p>
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-2 border-slate-700 border-t-slate-400" />
+          <p className="mt-4 text-sm text-slate-400">Loading parent overview...</p>
         </div>
       </div>
     );
   }
 
-  if (!parent) {
-    return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Parent Dashboard</h1>
-          <p className="text-slate-300 mt-2">No parent record found in Firestore for this account.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (children.length === 0) {
-    return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Parent Dashboard</h1>
-          <p className="text-slate-300 mt-2">No linked student record found for this parent.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const child = children[0];
-  const childId = child.uid || child.id;
-  const childIsOnline = childId ? userStatuses[childId]?.isOnline ?? false : false;
-  const deviceStatus = child.deviceId && devices[child.deviceId] ? devices[child.deviceId].status === 'active' ? 'connected' : 'disconnected' : 'disconnected';
-  const lastLocationUpdate = child.lastLocation?.timestamp ? new Date(child.lastLocation.timestamp).toLocaleString() : 'No data';
+  const greetingName = parentProfile?.parentName || user?.name || 'Parent';
+  const alertChildName = linkedStudent?.studentName || linkedStudent?.name || 'Your student';
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Parent Dashboard</h1>
-          <p className="text-slate-300 mt-2">Welcome back, {parent.name}!</p>
-        </div>
-        {error && (
-          <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 px-4 py-2 rounded-lg border border-red-800">
-            <AlertCircle className="w-4 h-4" />
-            {error}
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/10">
+        <div className="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+          <div className="space-y-4">
+            <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Parent overview</p>
+            <h1 className="text-3xl font-semibold text-white">Hello, {greetingName}.</h1>
+            <p className="max-w-2xl text-sm leading-7 text-slate-400">
+              Welcome to the parent portal. Track safety alerts, view student status, and review analytics for every linked child.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-4">
+              <div className="inline-flex items-center gap-3 rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+                <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                Secure monitoring enabled
+              </div>
+              <div className="inline-flex items-center gap-3 rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+                <MapPin className="h-5 w-5 text-sky-300" />
+                Live location available
+              </div>
+              <div className="inline-flex items-center gap-3 rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
+                <AlertTriangle className="h-5 w-5 text-amber-300" />
+                {linkedStudent ? 'Student tracking active' : 'No student linked yet'}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      <DashboardStats
-        child={child}
-        totalAlerts={alerts.length}
-        childIsOnline={childIsOnline}
-        deviceStatus={deviceStatus}
-        lastLocationUpdate={lastLocationUpdate}
-        emergencyActive={child.emergencyStatus === 'active'}
-        loading={dashboardLoading}
-      />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {parentOverviewStats.map((stat) => (
+              <div key={stat.title} className="rounded-3xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm shadow-slate-950/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-slate-500">{stat.title}</p>
+                    <p className="mt-3 text-3xl font-semibold text-white">{stat.title === 'Linked Students' ? (linkedStudent ? '1' : '0') : stat.value}</p>
+                  </div>
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-slate-800 text-slate-100">
+                    <stat.icon className="h-5 w-5" />
+                  </div>
+                </div>
+                <p className="mt-4 text-sm text-slate-400">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
-          <RecentActivity child={child} alerts={alerts} />
+      <section className="grid gap-6 lg:grid-cols-[1.5fr_0.8fr]">
+        <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-sm shadow-slate-950/10">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Alerts snapshot</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Latest updates</h2>
+            </div>
+            <span className="rounded-3xl bg-amber-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+              {linkedStudent ? (studentStatus === 'Emergency' ? 'Attention' : 'Active') : 'Pending'}
+            </span>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+              <p className="text-sm text-slate-400">Alert type</p>
+              <p className="mt-2 text-lg font-semibold text-white">{linkedStudent ? 'Campus safety alert' : 'No active alerts'}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+              <p className="text-sm text-slate-400">Affected child</p>
+              <p className="mt-2 text-lg font-semibold text-white">{alertChildName}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+              <p className="text-sm text-slate-400">Recommended action</p>
+              <p className="mt-2 text-lg font-semibold text-white">Review alert details and confirm device status.</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <QuickActions />
+
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-sm shadow-slate-950/10">
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Health insights</p>
+            <div className="mt-5 grid gap-4">
+              <div className="rounded-3xl bg-slate-900/80 p-4">
+                <p className="text-sm text-slate-400">Average device battery</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{linkedStudent?.deviceBattery ?? 'N/A'}%</p>
+              </div>
+              <div className="rounded-3xl bg-slate-900/80 p-4">
+                <p className="text-sm text-slate-400">Latest location refresh</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{linkedStudent?.lastLocation?.timestamp ?? 'No recent update'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-sm shadow-slate-950/10">
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Support</p>
+            <p className="mt-4 text-sm leading-7 text-slate-400">If you need help configuring alerts or checking device status, visit the settings page or contact campus support.</p>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {dashboardError && (
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/80 p-6 text-sm text-rose-200">
+          {dashboardError}
+        </div>
+      )}
+
+      <ParentAnalytics />
+      <ParentChildren student={linkedStudent} />
     </div>
   );
 }

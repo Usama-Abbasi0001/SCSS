@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { LucideIcon, X } from 'lucide-react';
 import {
   LayoutDashboard,
@@ -56,6 +57,7 @@ const roleLinks: Record<string, SidebarLink[]> = {
 export default function Sidebar({ role, open, onClose, onLogout }: SidebarProps) {
   const location = useLocation();
   const links = roleLinks[role];
+  const { user } = useAuth();
 
   return (
     <>
@@ -104,7 +106,12 @@ export default function Sidebar({ role, open, onClose, onLogout }: SidebarProps)
             })}
           </nav>
 
-          <div className="border-t border-slate-800 p-4">
+          <div className="border-t border-slate-800 p-4 mt-auto">
+            <div className="mb-3 p-3 bg-slate-900 rounded-xl">
+              <p className="text-sm text-white truncate">{user?.email ?? '—'}</p>
+              <p className="text-xs text-slate-400 truncate">Role: {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : '—'}</p>
+            </div>
+
             <button
               onClick={onLogout}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r text-sm font-semibold from-slate-700 via-slate-800 to-slate-900 px-4 py-3 text-white shadow-sm shadow-slate-950/30 transition hover:-translate-y-0.5 hover:shadow-md"

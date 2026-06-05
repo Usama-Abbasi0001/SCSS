@@ -23,11 +23,12 @@ import EmergencyStatus from './pages/student/EmergencyStatus';
 import StudentLocation from './pages/student/StudentLocation';
 import StudentAlerts from './pages/student/StudentAlerts';
 
-import ParentDashboard from './pages/parent/ParentDashboard';
 import ChildProfile from './pages/parent/ChildProfile';
 import LiveTracking from './pages/parent/LiveTracking';
 import ParentAlerts from './pages/parent/ParentAlerts';
 import ParentNotifications from './pages/parent/ParentNotifications';
+import ParentPortalLayout from './components/parent/ParentPortalLayout';
+import { parentRouteDefinitions } from './components/parent/parentRoutes';
 
 export default function App() {
   return (
@@ -82,17 +83,19 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['parent']}>
                 <DashboardLayout role="parent">
-                  <Routes>
-                    <Route index element={<ParentDashboard />} />
-                    <Route path="child" element={<ChildProfile />} />
-                    <Route path="tracking" element={<LiveTracking />} />
-                    <Route path="alerts" element={<ParentAlerts />} />
-                    <Route path="notifications" element={<ParentNotifications />} />
-                  </Routes>
+                  <ParentPortalLayout />
                 </DashboardLayout>
               </ProtectedRoute>
             }
-          />
+          >
+            {parentRouteDefinitions.map((route) => (
+              <Route key={route.path || 'index'} path={route.path} element={route.element} />
+            ))}
+            <Route path="child" element={<ChildProfile />} />
+            <Route path="tracking" element={<LiveTracking />} />
+            <Route path="alerts" element={<ParentAlerts />} />
+            <Route path="notifications" element={<ParentNotifications />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>

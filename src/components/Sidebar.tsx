@@ -17,7 +17,7 @@ import {
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, userData } = useAuth();
+  const { logout, userData, currentUser } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -102,11 +102,11 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User Profile Section */}
-      <div className="p-4 border-t border-white/10">
-        <div className="mb-3 p-3 bg-white/5 rounded-lg">
-          <p className="text-white truncate">{userData?.name}</p>
-          <p className="text-xs text-gray-400 truncate">{userData?.email}</p>
+      {/* Bottom area: user card above logout (logout pinned bottom via mt-auto) */}
+      <div className="mt-auto p-4 border-t border-white/10">
+        <div className="mb-3 p-3 bg-white/5 rounded-lg shadow-sm">
+          <p className="text-sm text-white truncate">{currentUser?.email ?? userData?.email ?? '—'}</p>
+          <p className="text-xs text-gray-400 truncate">Role: {userData?.role ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1) : '—'}</p>
         </div>
 
         <button

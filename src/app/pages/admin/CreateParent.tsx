@@ -59,6 +59,7 @@ export default function CreateParent() {
       const parentProfile: any = {
         uid,
         name: formData.name,
+        parentName: formData.name,
         email: formData.email.trim(),
         role: 'parent' as const,
         status: 'active',
@@ -72,10 +73,16 @@ export default function CreateParent() {
 
       await setDoc(doc(db, 'users', uid), parentProfile);
 
+      const selectedStudent = students.find((student) => student.id === formData.linkedStudentId);
+
+      console.debug('[CreateParent] created user uid=', uid, 'parentProfile=', parentProfile, 'selectedStudent=', selectedStudent);
+
       const parentData: any = {
         uid,
         name: formData.name,
+        parentName: formData.name,
         email: formData.email.trim(),
+        role: 'parent',
         phone: formData.phone,
         address: formData.address,
         cnic: formData.cnic,
@@ -84,6 +91,8 @@ export default function CreateParent() {
 
       if (formData.linkedStudentId) {
         parentData.linkedStudentId = formData.linkedStudentId;
+        parentData.studentId = formData.linkedStudentId;
+        parentData.studentName = selectedStudent?.name || selectedStudent?.studentName || '';
         parentData.children = [formData.linkedStudentId];
       }
 
@@ -97,19 +106,24 @@ export default function CreateParent() {
       );
 
       if (formData.linkedStudentId) {
-        const studentRef = doc(db, 'students', formData.linkedStudentId);
-        await updateDoc(studentRef, {
-          parentId: uid,
-          parentName: formData.name
-        }).catch(() => {
-          // Ignore update errors if student doc cannot be updated
-        });
+        try {
+          const studentRef = doc(db, 'students', formData.linkedStudentId);
+          await updateDoc(studentRef, {
+            parentId: uid,
+            parentName: formData.name,
+            parentUid: uid
+          }).catch(() => {});
 
-        await setDoc(
-          doc(db, 'parents', uid),
-          { children: arrayUnion(formData.linkedStudentId) },
-          { merge: true }
-        );
+          await setDoc(
+            doc(db, 'parents', uid),
+            { children: arrayUnion(formData.linkedStudentId) },
+            { merge: true }
+          );
+
+          console.debug('[CreateParent] linked parent', uid, 'to student', formData.linkedStudentId);
+        } catch (e) {
+          console.error('[CreateParent] failed linking student', formData.linkedStudentId, e);
+        }
       }
 
       setSuccess(true);
@@ -247,7 +261,7 @@ export default function CreateParent() {
               >
                 <option value="">Select a student</option>
                 {students.map((student) => (
-                  <option key={student.id} value={student.uid || student.id}>
+                  <option key={student.id} value={student.id}>
                     {student.name} ({student.registrationNumber})
                   </option>
                 ))}

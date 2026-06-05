@@ -5,15 +5,19 @@ export type AlertStatus = 'active' | 'resolved';
 export interface StudentDocument {
   id: string;
   uid?: string;
+  studentId?: string;
   name: string;
+  studentName?: string;
   email?: string;
   registrationNumber?: string;
   phone?: string;
   address?: string;
+  class?: string;
   parentName?: string;
   parentId?: string;
   deviceId?: string;
   emergencyStatus?: EmergencyStatus;
+  deviceBattery?: number;
   lastLocation?: {
     lat: number;
     lng: number;
@@ -25,11 +29,15 @@ export interface ParentDocument {
   id: string;
   uid?: string;
   name: string;
+  parentName?: string;
   email?: string;
   phone: string;
   address: string;
   cnic: string;
+  role?: 'parent' | 'student' | string;
   linkedStudentId?: string;
+  studentId?: string;
+  studentName?: string;
   children?: string[];
 }
 
