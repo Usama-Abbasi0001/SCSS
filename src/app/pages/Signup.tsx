@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { Shield, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 export default function Signup() {
-  const { signup } = useAuth();
-  const { user, loading: authLoading } = useAuth();
+  const { signup, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -54,12 +56,28 @@ export default function Signup() {
   }, []);
 
   useEffect(() => {
-    if (adminExists === null || authLoading) return;
-    // If an admin already exists and current user is not an admin, redirect to login
-    if (adminExists && (!user || user.role !== 'admin')) {
-      navigate('/login');
+    if (authLoading || adminExists === null) return;
+
+    if (user && user.role !== 'admin') {
+      navigate(`/${user.role}`, { replace: true });
+      return;
+    }
+
+    if (adminExists && !user) {
+      navigate('/login', { replace: true });
     }
   }, [adminExists, authLoading, user, navigate]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0a1628] via-[#152238] to-[#1a2f4a] flex items-center justify-center p-4">
+        <div className="text-center space-y-4 px-6 py-8 rounded-3xl border border-white/10 bg-slate-950/90 shadow-2xl shadow-slate-950/30">
+          <div className="h-12 w-12 rounded-full border-4 border-t-blue-500 border-slate-800 animate-spin mx-auto" />
+          <p className="text-sm text-slate-300">Checking authentication…</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,14 +168,22 @@ export default function Signup() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     id="password"
                     name="password"
                     value={form.password}
                     onChange={handleChange}
-                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full pl-11 pr-12 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 
@@ -166,14 +192,22 @@ export default function Signup() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     id="confirmPassword"
                     name="confirmPassword"
                     value={form.confirmPassword}
                     onChange={handleChange}
-                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full pl-11 pr-12 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
             </div>

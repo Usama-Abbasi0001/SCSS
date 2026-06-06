@@ -1,7 +1,6 @@
 import ParentDashboard from '../../pages/parent/ParentDashboard';
-import ParentChildren from './ParentChildren';
-import ParentAnalytics from './ParentAnalytics';
-import ParentSettings from './ParentSettings';
+import MyChild from '../../pages/parent/MyChild';
+import LiveTracking from '../../pages/parent/LiveTracking';
 
 export interface ParentRouteDefinition {
   path: string;
@@ -10,7 +9,6 @@ export interface ParentRouteDefinition {
 
 export const parentRouteDefinitions: ParentRouteDefinition[] = [
   { path: '', element: <ParentDashboard /> },
-  { path: 'children', element: <ParentChildren /> },
-  { path: 'analytics', element: <ParentAnalytics /> },
-  { path: 'settings', element: <ParentSettings /> }
+  { path: 'child', element: <MyChild /> },
+  { path: 'tracking', element: <LiveTracking /> }
 ];

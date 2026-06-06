@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StudentsList from './pages/admin/StudentsList';
@@ -31,13 +32,35 @@ import ParentPortalLayout from './components/parent/ParentPortalLayout';
 import { parentRouteDefinitions } from './components/parent/parentRoutes';
 
 export default function App() {
+  function HomeRedirect() {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
+          <div className="text-center space-y-2 px-6 py-8 rounded-3xl border border-slate-800 bg-slate-900/90 shadow-xl">
+            <div className="h-12 w-12 rounded-full border-4 border-t-blue-500 border-slate-800 animate-spin mx-auto" />
+            <p className="text-sm text-slate-300">Checking authentication…</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (user) {
+      return <Navigate to={`/${user.role}`} replace />;
+    }
+
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/" element={<HomeRedirect />} />
 
           <Route
             path="/admin/*"

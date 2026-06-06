@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 export interface ParentProfile {
@@ -103,6 +103,92 @@ export async function fetchStudentProfile(studentId: string): Promise<StudentPro
     console.error('[parentService] fetchStudentProfile', error);
     return null;
   }
+}
+
+export async function fetchStudentsByParentUid(parentUid: string): Promise<StudentProfile[]> {
+  try {
+    console.debug('[parentService] fetchStudentsByParentUid parentUid=', parentUid);
+    const q = query(collection(db, 'students'), where('parentUid', '==', parentUid));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      console.debug('[parentService] fetchStudentsByParentUid found 0 results');
+      return [];
+    }
+
+    return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<StudentProfile, 'id'>) }));
+  } catch (error) {
+    console.error('[parentService] fetchStudentsByParentUid', error);
+    return [];
+  }
+}
+
+export async function fetchStudentsByParentId(parentId: string): Promise<StudentProfile[]> {
+  try {
+    console.debug('[parentService] fetchStudentsByParentId parentId=', parentId);
+    const q = query(collection(db, 'students'), where('parentId', '==', parentId));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      console.debug('[parentService] fetchStudentsByParentId found 0 results');
+      return [];
+    }
+
+    return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<StudentProfile, 'id'>) }));
+  } catch (error) {
+    console.error('[parentService] fetchStudentsByParentId', error);
+    return [];
+  }
+}
+
+export function subscribeStudentsByParent(parentUid: string, parentId: string | undefined, onUpdate: (children: StudentProfile[]) => void) {
+  console.debug('[parentService] subscribeStudentsByParent start', { parentUid, parentId });
+  const studentMap = new Map<string, StudentProfile>();
+
+  const updateChildren = () => {
+    const values = Array.from(studentMap.values());
+    console.debug('[parentService] updateChildren', { count: values.length });
+    onUpdate(values);
+  };
+
+  const subscribeToQuery = (q: ReturnType<typeof query>, name: string) => {
+    console.debug('[parentService] subscribing query', { name, parentUid, parentId });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        console.debug('[parentService] onSnapshot callback', {
+          name,
+          size: snapshot.size,
+          changes: snapshot.docChanges().map((change) => ({ id: change.doc.id, type: change.type }))
+        });
+
+        snapshot.docChanges().forEach((change) => {
+          const docData = change.doc.data() as StudentProfile;
+          const student: StudentProfile = { id: change.doc.id, ...(docData as Omit<StudentProfile, 'id'>) };
+
+          if (change.type === 'removed') {
+            studentMap.delete(change.doc.id);
+          } else {
+            studentMap.set(change.doc.id, student);
+          }
+        });
+
+        updateChildren();
+      },
+      (error) => {
+        console.error('[parentService] onSnapshot error', { name, error });
+        updateChildren();
+      }
+    );
+  };
+
+  const unsubscribeFunctions = [
+    subscribeToQuery(query(collection(db, 'students'), where('parentUid', '==', parentUid)), 'parentUid')
+  ];
+
+  if (parentId) {
+    unsubscribeFunctions.push(subscribeToQuery(query(collection(db, 'students'), where('parentId', '==', parentId)), 'parentId'));
+  }
+
+  return () => unsubscribeFunctions.forEach((unsubscribe) => unsubscribe());
 }
 
 export async function fetchStudentByParentUid(parentUid: string): Promise<StudentProfile | null> {

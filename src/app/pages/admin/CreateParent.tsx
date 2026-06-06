@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { UserPlus, CheckCircle } from 'lucide-react';
 import {
   arrayUnion,
@@ -28,6 +29,7 @@ const initialParentFormData = {
 export default function CreateParent() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState(initialParentFormData);
+  const [showPassword, setShowPassword] = useState(false);
   const [students, setStudents] = useState<StudentDocument[]>([]);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -207,15 +209,25 @@ export default function CreateParent() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Password *
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-3 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
-                  placeholder="Set a password"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-3 pr-12 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+                    placeholder="Set a password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               <div className="md:col-span-2">

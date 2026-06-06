@@ -1,4 +1,4 @@
-import { BarChart3, Home, Settings, Users } from 'lucide-react';
+import { Home, Users, MapPin } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface ParentMenuItem {
@@ -10,27 +10,21 @@ export interface ParentMenuItem {
 
 export const parentMenuItems: ParentMenuItem[] = [
   {
-    label: 'Overview',
+    label: 'Dashboard',
     path: '/parent',
     icon: Home,
-    description: 'Parent dashboard overview and real-time status'
+    description: 'Overview and linked child information'
   },
   {
-    label: 'Children',
-    path: '/parent/children',
+    label: 'My Child',
+    path: '/parent/child',
     icon: Users,
-    description: 'Manage your children and device status'
+    description: 'View child profile and status'
   },
   {
-    label: 'Analytics',
-    path: '/parent/analytics',
-    icon: BarChart3,
-    description: 'Trend insights and safety analytics'
-  },
-  {
-    label: 'Settings',
-    path: '/parent/settings',
-    icon: Settings,
-    description: 'Notification and safety preferences'
+    label: 'Live Tracking',
+    path: '/parent/tracking',
+    icon: MapPin,
+    description: 'Real-time location tracking'
   }
 ];

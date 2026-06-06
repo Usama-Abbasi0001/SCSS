@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   signOut,
   type User as FirebaseUser
@@ -36,6 +37,7 @@ interface AuthContextType {
     role: 'admin' | 'parent' | 'student',
     profile: SignupProfile
   ) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -190,6 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({ id: credential.user.uid, uid: credential.user.uid, name: profile.name, email, role, createdAt: new Date(), ...(baseProfile.linkedStudentId ? { linkedStudentId: baseProfile.linkedStudentId } : {}) } as UserProfile);
   };
 
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
   const logout = async () => {
     try {
       if (user?.uid) {
@@ -203,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

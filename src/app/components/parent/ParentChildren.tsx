@@ -1,76 +1,122 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { MapPin, BatteryCharging, ShieldCheck, Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { fetchParentProfile, fetchStudentProfile, StudentProfile } from '../../services/parentService';
+import { auth, db } from '../../../config/firebase';
+import { fetchParentProfile, StudentProfile } from '../../services/parentService';
 
 interface ParentChildrenProps {
-  student?: StudentProfile | null;
+  students?: StudentProfile[] | null;
 }
 
-export default function ParentChildren({ student }: ParentChildrenProps) {
+export default function ParentChildren({ students }: ParentChildrenProps) {
   const { user } = useAuth();
-  const [localStudent, setLocalStudent] = useState<StudentProfile | null>(student ?? null);
+  const [localStudents, setLocalStudents] = useState<StudentProfile[] | null>(students ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (student !== undefined) {
-      setLocalStudent(student);
+    console.debug('[ParentChildren] useEffect start', {
+      userId: user?.id,
+      authUid: auth.currentUser?.uid,
+      studentsProp: students
+    });
+
+    if (students !== undefined) {
+      console.debug('[ParentChildren] students prop provided', { count: students?.length ?? 0 });
+      setLocalStudents(students);
+      setLoading(false);
       return;
     }
 
     if (!user?.id) {
-      setLocalStudent(null);
+      console.debug('[ParentChildren] no authenticated parent user id, clearing local students');
+      setLocalStudents(null);
+      setLoading(false);
       return;
     }
 
     let active = true;
+    let unsubscribe = () => {};
     setLoading(true);
     setError('');
 
-    const loadStudent = async () => {
-      const parentProfile = await fetchParentProfile(user.id);
-      if (!active) {
-        return;
-      }
+    const subscribeChildren = async () => {
+      try {
+        const parentProfile = await fetchParentProfile(user.id);
+        console.debug('[ParentChildren] fetchParentProfile result', { parentProfile });
+        if (!active) {
+          return;
+        }
 
-      const studentId = parentProfile?.studentId || parentProfile?.linkedStudentId;
-      if (!studentId) {
-        setLocalStudent(null);
-        setError('No student linked to your account.');
+        const parentId = parentProfile?.id;
+        const studentMap = new Map<string, StudentProfile>();
+
+        const updateChildren = () => {
+          if (!active) return;
+          const values = Array.from(studentMap.values());
+          console.debug('[ParentChildren] updateChildren', { count: values.length });
+          setLocalStudents(values);
+          setLoading(false);
+        };
+
+        const subscribeQuery = (q: ReturnType<typeof query>, name: string) =>
+          onSnapshot(
+            q,
+            (snapshot) => {
+              console.debug('[ParentChildren] onSnapshot', {
+                queryName: name,
+                queryParentUid: user.id,
+                queryParentId: parentId,
+                snapshotSize: snapshot.size,
+                docChanges: snapshot.docChanges().map((change) => ({ id: change.doc.id, type: change.type }))
+              });
+
+              snapshot.docChanges().forEach((change) => {
+                const docData = change.doc.data() as StudentProfile;
+                const childRecord: StudentProfile = { id: change.doc.id, ...(docData as Omit<StudentProfile, 'id'>) };
+
+                if (change.type === 'removed') {
+                  studentMap.delete(change.doc.id);
+                } else {
+                  studentMap.set(change.doc.id, childRecord);
+                }
+              });
+
+              updateChildren();
+            },
+            (error) => {
+              console.error('[ParentChildren] onSnapshot error', { queryName: name, error });
+              updateChildren();
+            }
+          );
+
+        const subscriptions = [
+          subscribeQuery(query(collection(db, 'students'), where('parentUid', '==', user.id)), 'parentUid')
+        ];
+
+        if (parentId) {
+          subscriptions.push(subscribeQuery(query(collection(db, 'students'), where('parentId', '==', parentId)), 'parentId'));
+        }
+
+        unsubscribe = () => subscriptions.forEach((unsub) => unsub());
+      } catch (error) {
+        console.error('[ParentChildren] subscribeChildren failed', error);
+        setError('Unable to load linked students.');
         setLoading(false);
-        return;
       }
-
-      const fetchedStudent = await fetchStudentProfile(studentId);
-      if (!active) {
-        return;
-      }
-
-      if (!fetchedStudent) {
-        setLocalStudent(null);
-        setError('Linked student record was not found.');
-      } else {
-        setLocalStudent(fetchedStudent);
-      }
-      setLoading(false);
     };
 
-    loadStudent();
+    subscribeChildren();
 
     return () => {
       active = false;
+      unsubscribe();
     };
-  }, [student, user?.id]);
+  }, [students, user?.id]);
 
-  const linkedStudent = student ?? localStudent;
-  const status = useMemo(() => {
-    if (!linkedStudent) {
-      return 'No data';
-    }
-
-    return linkedStudent.emergencyStatus === 'active' ? 'Emergency' : 'Safe';
-  }, [linkedStudent]);
+  const children = localStudents ?? [];
+  const hasChildren = children.length > 0;
 
   if (loading) {
     return (
@@ -80,7 +126,7 @@ export default function ParentChildren({ student }: ParentChildrenProps) {
     );
   }
 
-  if (!linkedStudent) {
+  if (!hasChildren) {
     return (
       <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-8 shadow-xl shadow-slate-950/20">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -104,7 +150,8 @@ export default function ParentChildren({ student }: ParentChildrenProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Child roster</p>
-            <h2 className="mt-2 text-3xl font-semibold text-white">Your linked student</h2>
+            <h2 className="mt-2 text-3xl font-semibold text-white">Your linked student{children.length > 1 ? 's' : ''}</h2>
+            <p className="mt-2 text-sm text-slate-400">{children.length} linked child{children.length > 1 ? 'ren' : ''} are available for monitoring.</p>
           </div>
           <button className="inline-flex items-center gap-2 rounded-3xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-slate-800">
             <Bell className="h-4 w-4 text-slate-300" />
@@ -113,57 +160,64 @@ export default function ParentChildren({ student }: ParentChildrenProps) {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm shadow-slate-950/10">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-lg font-semibold text-white">{linkedStudent.studentName || linkedStudent.name || 'Unnamed Student'}</p>
-            <p className="mt-1 text-sm text-slate-400">{linkedStudent.registrationNumber || linkedStudent.studentId || linkedStudent.uid || 'Student ID unavailable'}</p>
-          </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              status === 'Safe' ? 'bg-emerald-500/10 text-emerald-300' : status === 'Emergency' ? 'bg-rose-500/10 text-rose-300' : 'bg-amber-500/10 text-amber-300'
-            }`}
-          >
-            {status}
-          </span>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {children.map((child) => {
+          const childStatus = child.emergencyStatus === 'active' ? 'Emergency' : 'Safe';
+          return (
+            <div key={child.id} className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm shadow-slate-950/10">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-lg font-semibold text-white">{child.studentName || child.name || 'Unnamed Student'}</p>
+                  <p className="mt-1 text-sm text-slate-400">{child.registrationNumber || child.studentId || child.uid || 'Student ID unavailable'}</p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    childStatus === 'Safe' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'
+                  }`}
+                >
+                  {childStatus}
+                </span>
+              </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="flex items-center gap-2 text-slate-400">
-              <MapPin className="h-4 w-4" />
-              <span className="text-sm">Current Location</span>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <MapPin className="h-4 w-4" />
+                    <span className="text-sm">Current Location</span>
+                  </div>
+                  <p className="text-sm text-white">
+                    {child.lastLocation?.timestamp
+                      ? `${child.lastLocation.timestamp} • ${child.lastLocation.lat.toFixed(3)}, ${child.lastLocation.lng.toFixed(3)}`
+                      : 'Location updates are not available yet.'}
+                  </p>
+                </div>
+                <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <BatteryCharging className="h-4 w-4" />
+                    <span className="text-sm">Device battery</span>
+                  </div>
+                  <p className="text-sm text-white">{child.deviceBattery ?? 'Unknown'}%</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+                  <p className="text-sm text-slate-400">Assigned device</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{child.deviceId || 'Not assigned'}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
+                  <p className="text-sm text-slate-400">Last update</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{child.lastLocation?.timestamp ?? 'No recent update'}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center gap-3 text-slate-400">
+                <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm">Connected device and campus safety monitoring active.</p>
+              </div>
             </div>
-            <p className="text-sm text-white">
-              {linkedStudent.lastLocation?.timestamp
-                ? `${linkedStudent.lastLocation.timestamp} • ${linkedStudent.lastLocation.lat.toFixed(3)}, ${linkedStudent.lastLocation.lng.toFixed(3)}`
-                : 'Location updates are not available yet.'}
-            </p>
-          </div>
-          <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-            <div className="flex items-center gap-2 text-slate-400">
-              <BatteryCharging className="h-4 w-4" />
-              <span className="text-sm">Device battery</span>
-            </div>
-            <p className="text-sm text-white">{linkedStudent.deviceBattery ?? 'Unknown'}%</p>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-            <p className="text-sm text-slate-400">Assigned device</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{linkedStudent.deviceId || 'Not assigned'}</p>
-          </div>
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-4">
-            <p className="text-sm text-slate-400">Last update</p>
-            <p className="mt-2 text-sm font-semibold text-white">{linkedStudent.lastLocation?.timestamp ?? 'No recent update'}</p>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3 text-slate-400">
-          <ShieldCheck className="h-4 w-4 text-emerald-300" />
-          <p className="text-sm">Connected device and campus safety monitoring active.</p>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
