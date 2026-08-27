@@ -1,199 +1,197 @@
 import { useEffect, useState } from 'react';
-import { Bell, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../../../config/firebase';
-import { AlertDocument, ParentDocument } from '../../types/firestore';
-
-interface Notification {
-  id: string;
-  type: 'alert' | 'info' | 'success';
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-}
+import {
+  subscribeNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
+} from '../../services/safetyService';
+import { NotificationDocument } from '../../types/firestore';
+import {
+  Bell,
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  MapPin,
+  ExternalLink,
+  ShieldCheck,
+  CheckCheck
+} from 'lucide-react';
 
 export default function ParentNotifications() {
-  const { user } = useAuth();
-  const [parent, setParent] = useState<ParentDocument | null>(null);
-  const [childAlerts, setChildAlerts] = useState<AlertDocument[]>([]);
+  const { user, loading } = useAuth();
+  const [notifications, setNotifications] = useState<NotificationDocument[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) {
-      setParent(null);
+    if (!user?.id && !user?.uid) {
+      setNotifications([]);
+      setLoadingList(false);
       return;
     }
 
-    const parentRef = doc(db, 'parents', user.id);
-    const unsubscribe = onSnapshot(parentRef, async (snapshot) => {
-      if (snapshot.exists()) {
-        setParent({ id: snapshot.id, ...snapshot.data() } as ParentDocument);
-      } else {
-        const fallbackQuery = query(collection(db, 'parents'), where('uid', '==', user.id));
-        const fallbackSnapshot = await getDocs(fallbackQuery);
-        if (fallbackSnapshot.docs.length > 0) {
-          const docData = fallbackSnapshot.docs[0];
-          setParent({ id: docData.id, ...docData.data() } as ParentDocument);
-        } else {
-          setParent(null);
-        }
-      }
+    const recipientId = user.uid || user.id;
+    setLoadingList(true);
+
+    const unsubscribe = subscribeNotifications(recipientId, (notifs) => {
+      setNotifications(notifs);
+      setLoadingList(false);
     });
 
-    return unsubscribe;
-  }, [user?.id]);
+    return () => unsubscribe();
+  }, [user?.id, user?.uid]);
 
-  useEffect(() => {
-    if (!parent?.linkedStudentId) {
-      setChildAlerts([]);
-      return;
-    }
+  const handleMarkRead = async (id: string) => {
+    await markNotificationAsRead(id);
+  };
 
-    const alertsQuery = query(collection(db, 'alerts'), where('studentId', '==', parent.linkedStudentId));
-    const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
-      setChildAlerts(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as AlertDocument)));
-    });
-
-    return unsubscribe;
-  }, [parent?.linkedStudentId]);
-
-  const notifications: Notification[] = [
-    ...childAlerts.map((alert) => ({
-      id: alert.id,
-      type: 'alert' as const,
-      title: 'Emergency Alert',
-      message: alert.message ?? '',
-      timestamp: alert.timestamp,
-      read: alert.status === 'resolved'
-    })),
-    {
-      id: 'n1',
-      type: 'info',
-      title: 'Device Status',
-      message: 'Safety device battery at 85%',
-      timestamp: '2026-05-31 12:00:00',
-      read: true
-    },
-    {
-      id: 'n2',
-      type: 'success',
-      title: 'Location Update',
-      message: 'Your child has arrived at campus',
-      timestamp: '2026-05-31 08:30:00',
-      read: true
-    }
-  ];
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'alert':
-        return <AlertTriangle className="w-5 h-5 text-red-600" />;
-      case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      default:
-        return <Info className="w-5 h-5 text-blue-600" />;
+  const handleMarkAllRead = async () => {
+    if (user?.uid || user?.id) {
+      await markAllNotificationsAsRead(user.uid || user.id);
     }
   };
 
-  const getBgColor = (type: string) => {
-    switch (type) {
-      case 'alert':
-        return 'bg-red-50 border-red-200';
-      case 'success':
-        return 'bg-green-50 border-green-200';
-      default:
-        return 'bg-blue-50 border-blue-200';
-    }
-  };
-
-  if (!parent) {
+  if (loading || loadingList) {
     return (
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-gray-600 mt-2">No parent record found for this account.</p>
+      <div className="flex min-h-[50vh] items-center justify-center rounded-3xl border border-slate-800 bg-slate-950/90 p-10">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-2 border-slate-700 border-t-fuchsia-500" />
+          <p className="mt-4 text-sm text-slate-400">Loading safety notifications…</p>
         </div>
       </div>
     );
   }
 
+  const unreadList = notifications.filter((n) => !n.read);
+  const readList = notifications.filter((n) => n.read);
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'sos':
+      case 'emergency':
+        return <AlertTriangle className="h-5 w-5 text-rose-400" />;
+      case 'resolved':
+        return <ShieldCheck className="h-5 w-5 text-emerald-400" />;
+      case 'location':
+        return <MapPin className="h-5 w-5 text-sky-400" />;
+      default:
+        return <Info className="h-5 w-5 text-indigo-400" />;
+    }
+  };
+
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-        <p className="text-gray-600 mt-2">Stay updated with your child's safety status</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/10">
+        <div>
+          <h1 className="text-3xl font-semibold text-white">Notifications</h1>
+          <p className="mt-1 text-slate-400">Real-time alerts, safety events, and emergency updates</p>
+        </div>
+
+        {unreadList.length > 0 && (
+          <button
+            onClick={handleMarkAllRead}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-500 text-xs font-semibold text-white transition self-start sm:self-auto shadow-lg shadow-fuchsia-600/20"
+          >
+            <CheckCheck className="h-4 w-4" />
+            Mark All as Read ({unreadList.length})
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-purple-900">Total</h3>
-            <Bell className="w-5 h-5 text-purple-600" />
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-medium">Total Notifications</p>
+            <Bell className="h-5 w-5 text-fuchsia-400" />
           </div>
-          <p className="text-3xl font-bold text-purple-600">{notifications.length}</p>
+          <p className="mt-3 text-3xl font-bold text-white">{notifications.length}</p>
         </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-red-900">Unread</h3>
-            <AlertTriangle className="w-5 h-5 text-red-600" />
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/20 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-rose-300 font-medium">Unread</p>
+            <AlertTriangle className="h-5 w-5 text-rose-400" />
           </div>
-          <p className="text-3xl font-bold text-red-600">{unreadCount}</p>
+          <p className="mt-3 text-3xl font-bold text-rose-200">{unreadList.length}</p>
         </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-green-900">Read</h3>
-            <CheckCircle className="w-5 h-5 text-green-600" />
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-950/20 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-emerald-300 font-medium">Read & Archived</p>
+            <CheckCircle className="h-5 w-5 text-emerald-400" />
           </div>
-          <p className="text-3xl font-bold text-green-600">{notifications.length - unreadCount}</p>
+          <p className="mt-3 text-3xl font-bold text-emerald-200">{readList.length}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">All Notifications</h2>
-          {unreadCount > 0 && (
-            <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-              Mark all as read
-            </button>
-          )}
-        </div>
+      {/* Notifications List */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/10">
+        <h2 className="text-xl font-semibold text-white mb-6">Recent Notifications Feed</h2>
 
-        <div className="space-y-4">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`border rounded-xl p-5 transition-all ${
-                notification.read
-                  ? 'bg-white border-gray-200'
-                  : `${getBgColor(notification.type)} border-2`
-              }`}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex-shrink-0 p-2 rounded-lg ${
-                    notification.type === 'alert' ? 'bg-red-100' :
-                    notification.type === 'success' ? 'bg-green-100' : 'bg-blue-100'
-                  }`}
-                >
-                  {getIcon(notification.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h3 className="font-semibold text-gray-900">{notification.title}</h3>
-                    {!notification.read && <span className="flex-shrink-0 w-2 h-2 bg-purple-600 rounded-full" />}
+        {notifications.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-slate-800/80 bg-slate-900/30">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-slate-500">
+              <Bell className="h-7 w-7" />
+            </div>
+            <h3 className="text-base font-semibold text-white">No Notifications Yet</h3>
+            <p className="text-xs text-slate-400 mt-1">You will receive instant alerts when safety events occur.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifications.map((notif) => (
+              <div
+                key={notif.id}
+                className={`p-5 rounded-2xl border transition-all ${
+                  notif.read
+                    ? 'border-slate-800/80 bg-slate-900/40 text-slate-300'
+                    : 'border-fuchsia-500/30 bg-fuchsia-950/10 shadow-lg shadow-fuchsia-950/10 text-white'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex-shrink-0">
+                      {getIcon(notif.type)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-base">{notif.title}</h4>
+                        {!notif.read && (
+                          <span className="h-2 w-2 rounded-full bg-fuchsia-500 animate-pulse" />
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-300 mt-1">{notif.message}</p>
+                      <p className="text-xs text-slate-500 mt-2">{notif.timestamp}</p>
+                    </div>
                   </div>
-                  <p className="text-gray-700 mb-2">{notification.message}</p>
-                  <p className="text-xs text-gray-500">{notification.timestamp}</p>
+
+                  <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0">
+                    {notif.googleMapsUrl && (
+                      <a
+                        href={notif.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-semibold p-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        View Map
+                      </a>
+                    )}
+
+                    {!notif.read && (
+                      <button
+                        onClick={() => handleMarkRead(notif.id)}
+                        className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-xl border border-slate-800 hover:bg-slate-800 transition"
+                      >
+                        Mark Read
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

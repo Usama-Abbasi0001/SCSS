@@ -24,12 +24,13 @@ import EmergencyStatus from './pages/student/EmergencyStatus';
 import StudentLocation from './pages/student/StudentLocation';
 import StudentAlerts from './pages/student/StudentAlerts';
 
-import ChildProfile from './pages/parent/ChildProfile';
+import ParentDashboard from './pages/parent/ParentDashboard';
+import MyChild from './pages/parent/MyChild';
 import LiveTracking from './pages/parent/LiveTracking';
 import ParentAlerts from './pages/parent/ParentAlerts';
 import ParentNotifications from './pages/parent/ParentNotifications';
-import ParentPortalLayout from './components/parent/ParentPortalLayout';
-import { parentRouteDefinitions } from './components/parent/parentRoutes';
+import ParentDeviceStatus from './pages/parent/ParentDeviceStatus';
+import ParentLocationUpdates from './pages/parent/ParentLocationUpdates';
 
 export default function App() {
   function HomeRedirect() {
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/" element={<HomeRedirect />} />
 
+          {/* Admin Routes */}
           <Route
             path="/admin/*"
             element={
@@ -84,6 +86,7 @@ export default function App() {
             }
           />
 
+          {/* Student Routes */}
           <Route
             path="/student/*"
             element={
@@ -101,24 +104,28 @@ export default function App() {
             }
           />
 
+          {/* Parent Routes */}
           <Route
             path="/parent/*"
             element={
               <ProtectedRoute allowedRoles={['parent']}>
                 <DashboardLayout role="parent">
-                  <ParentPortalLayout />
+                  <Routes>
+                    <Route index element={<ParentDashboard />} />
+                    <Route path="child" element={<MyChild />} />
+                    <Route path="tracking" element={<LiveTracking />} />
+                    <Route path="alerts" element={<ParentAlerts />} />
+                    <Route path="notifications" element={<ParentNotifications />} />
+                    <Route path="device-status" element={<ParentDeviceStatus />} />
+                    <Route path="location-updates" element={<ParentLocationUpdates />} />
+                  </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
             }
-          >
-            {parentRouteDefinitions.map((route) => (
-              <Route key={route.path || 'index'} path={route.path} element={route.element} />
-            ))}
-            <Route path="child" element={<ChildProfile />} />
-            <Route path="tracking" element={<LiveTracking />} />
-            <Route path="alerts" element={<ParentAlerts />} />
-            <Route path="notifications" element={<ParentNotifications />} />
-          </Route>
+          />
+
+          {/* Wildcard Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

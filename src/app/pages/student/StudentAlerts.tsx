@@ -1,125 +1,183 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Bell } from 'lucide-react';
-import AlertBadge from '../../components/dashboard/AlertBadge';
 import { useAuth } from '../../context/AuthContext';
-import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
-import { AlertDocument, StudentDocument } from '../../types/firestore';
+import { AlertDocument } from '../../types/firestore';
+import { buildGoogleMapsUrl } from '../../services/safetyService';
+import {
+  AlertTriangle,
+  Bell,
+  Clock,
+  ExternalLink,
+  ShieldCheck,
+  Activity
+} from 'lucide-react';
 
 export default function StudentAlerts() {
-  const { user } = useAuth();
-  const [, setStudent] = useState<StudentDocument | null>(null);
+  const { user, loading } = useAuth();
   const [studentAlerts, setStudentAlerts] = useState<AlertDocument[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) {
-      setStudent(null);
-      return;
-    }
-
-    const studentRef = doc(db, 'students', user.id);
-    const unsubscribe = onSnapshot(studentRef, async (snapshot) => {
-      if (snapshot.exists()) {
-        setStudent({ id: snapshot.id, ...snapshot.data() } as StudentDocument);
-      } else {
-        const fallbackQuery = query(
-          collection(db, 'students'),
-          where('registrationNumber', '==', user.id)
-        );
-        const fallbackSnapshot = await getDocs(fallbackQuery);
-        if (fallbackSnapshot.docs.length > 0) {
-          const docData = fallbackSnapshot.docs[0];
-          setStudent({ id: docData.id, ...docData.data() } as StudentDocument);
-        } else {
-          setStudent(null);
-        }
-      }
-    });
-
-    return unsubscribe;
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) {
+    if (!user?.id && !user?.uid) {
       setStudentAlerts([]);
+      setLoadingAlerts(false);
       return;
     }
 
-    const alertsQuery = query(collection(db, 'alerts'), where('studentId', '==', user.id));
-    const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
-      setStudentAlerts(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as AlertDocument)));
-    });
+    const studentUid = user.uid || user.id;
+    setLoadingAlerts(true);
 
-    return unsubscribe;
-  }, [user?.id]);
+    const alertsQuery = query(collection(db, 'alerts'), where('studentId', '==', studentUid));
+    const unsubscribe = onSnapshot(
+      alertsQuery,
+      (snapshot) => {
+        const items = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        })) as AlertDocument[];
+
+        items.sort(
+          (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
+        setStudentAlerts(items);
+        setLoadingAlerts(false);
+      },
+      (err) => {
+        console.error('[StudentAlerts] alerts query error', err);
+        setLoadingAlerts(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.id, user?.uid]);
+
+  if (loading || loadingAlerts) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center rounded-3xl border border-slate-800 bg-slate-950/90 p-10">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-2 border-slate-700 border-t-emerald-500" />
+          <p className="mt-4 text-sm text-slate-400">Loading your alert history…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeCount = studentAlerts.filter((a) => a.status === 'active').length;
+  const resolvedCount = studentAlerts.filter((a) => a.status === 'resolved').length;
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Alert History</h1>
-        <p className="text-slate-300 mt-2">View all your past alerts and notifications</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/10">
+        <h1 className="text-3xl font-semibold text-white">Alert History & Logs</h1>
+        <p className="mt-1 text-slate-400">View all your emergency alarms, warnings, and security resolutions</p>
       </div>
 
-      {studentAlerts.length > 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="space-y-4">
-            {studentAlerts.map((alert) => (
-              <div key={alert.id} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`p-3 rounded-xl ${
-                        alert.type === 'emergency' ? 'bg-red-100' :
-                        alert.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-                      }`}
-                    >
-                      <AlertTriangle
-                        className={`w-6 h-6 ${
-                          alert.type === 'emergency' ? 'text-red-600' :
-                          alert.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-lg">{alert.message}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{alert.timestamp}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <AlertBadge type={alert.type}>{alert.type}</AlertBadge>
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full ${
-                        alert.status === 'active' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {alert.status}
-                    </span>
-                  </div>
-                </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/20 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-rose-300 font-medium">Active Alerts</p>
+            <AlertTriangle className="h-5 w-5 text-rose-400" />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-rose-200">{activeCount}</p>
+        </div>
 
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-2">Location at time of alert:</p>
-                  <p className="font-mono text-sm text-gray-900">
-                    {alert.location?.lat != null && alert.location?.lng != null
-                      ? `${alert.location.lat.toFixed(6)}, ${alert.location.lng.toFixed(6)}`
-                      : 'Location unavailable'}
-                  </p>
-                </div>
-              </div>
-            ))}
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-950/20 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-emerald-300 font-medium">Resolved Alerts</p>
+            <ShieldCheck className="h-5 w-5 text-emerald-400" />
           </div>
+          <p className="mt-3 text-3xl font-bold text-emerald-200">{resolvedCount}</p>
         </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12">
-          <div className="text-center">
-            <div className="bg-slate-900/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-10 h-10 text-slate-500" />
+
+        <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-slate-400 font-medium">Total Logged Events</p>
+            <Activity className="h-5 w-5 text-sky-400" />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-white">{studentAlerts.length}</p>
+        </div>
+      </div>
+
+      {/* Alert Cards */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/10">
+        <h2 className="text-xl font-semibold text-white mb-6">Historical Log</h2>
+
+        {studentAlerts.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-slate-800/80 bg-slate-900/30">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-slate-500">
+              <Bell className="h-7 w-7" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Alerts Yet</h2>
-            <p className="text-gray-600">You don't have any alert history yet. Stay safe!</p>
+            <h3 className="text-base font-semibold text-white">No Past Alerts</h3>
+            <p className="text-xs text-slate-400 mt-1">You have not triggered any SOS alarms. Stay safe!</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-4">
+            {studentAlerts.map((alert) => {
+              const lat = alert.latitude ?? alert.location?.lat;
+              const lng = alert.longitude ?? alert.location?.lng;
+              const mapsUrl = alert.googleMapsUrl || (lat && lng ? buildGoogleMapsUrl(lat, lng) : null);
+
+              return (
+                <div
+                  key={alert.id}
+                  className={`p-5 rounded-2xl border transition-all ${
+                    alert.status === 'active'
+                      ? 'border-rose-500/30 bg-rose-950/10'
+                      : 'border-slate-800/80 bg-slate-900/60'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3.5">
+                      <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+                        alert.type === 'emergency' ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
+                      }`}>
+                        <AlertTriangle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-white text-base">{alert.message}</h4>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-slate-500" />
+                          {alert.timestamp}
+                          {alert.resolvedAt && (
+                            <span className="text-emerald-400 ml-2 font-medium">
+                              • Resolved at {alert.resolvedAt} ({alert.resolvedBy || 'Security'})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                        alert.status === 'active'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
+                        {alert.status}
+                      </span>
+
+                      {mapsUrl && (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-semibold p-2"
+                          title="Open in Google Maps"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
