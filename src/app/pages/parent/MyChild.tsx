@@ -34,17 +34,27 @@ export default function MyChild() {
         return;
       }
 
-      unsubscribeChildren = subscribeStudentsByParent(user.id, profile?.id, (updatedChildren) => {
-        if (!active) return;
-        setChildren(updatedChildren);
-        setLoadingPage(false);
-      });
+      unsubscribeChildren = subscribeStudentsByParent(
+        user.id,
+        profile?.id,
+        (updatedChildren) => {
+          if (!active) return;
+          setChildren(updatedChildren);
+          setLoadingPage(false);
+        },
+        profile
+      );
     };
+
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoadingPage(false);
+    }, 1500);
 
     loadData();
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       unsubscribeChildren();
     };
   }, [user?.id, loading]);

@@ -54,8 +54,8 @@ export default function ActiveDevices() {
               ) : (
                 students.map((s) => {
                   const uid = (s.uid || s.id || '').toString();
-                  const statusObj = statuses[uid];
-                  const isActive = statusObj?.status === 'active';
+                  const statusObj = statuses[uid] || statuses[s.id];
+                  const isActive = statusObj?.status === 'active' || statusObj?.isOnline === true || (s as any).status === 'active';
                   const lastActive = statusObj?.lastActive ? (statusObj.lastActive?.toDate ? statusObj.lastActive.toDate().toLocaleString() : new Date(statusObj.lastActive).toLocaleString()) : '—';
                   const loc = s.lastLocation ? `${s.lastLocation.lat.toFixed(4)}, ${s.lastLocation.lng.toFixed(4)}` : '—';
 

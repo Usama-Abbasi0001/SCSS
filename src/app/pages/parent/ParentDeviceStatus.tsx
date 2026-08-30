@@ -50,48 +50,58 @@ export default function ParentDeviceStatus() {
         return;
       }
 
-      unsubscribeChildren = subscribeStudentsByParent(user.id, profile?.id, (updatedChildren) => {
-        if (!active) return;
-        setChildren(updatedChildren);
-        setLoadingPage(false);
+      unsubscribeChildren = subscribeStudentsByParent(
+        user.id,
+        profile?.id,
+        (updatedChildren) => {
+          if (!active) return;
+          setChildren(updatedChildren);
+          setLoadingPage(false);
 
-        if (updatedChildren.length > 0) {
-          const currentChild = updatedChildren[0];
-          const studentUid = currentChild.uid || currentChild.id;
+          if (updatedChildren.length > 0) {
+            const currentChild = updatedChildren[0];
+            const studentUid = currentChild.uid || currentChild.id;
 
-          // 1. Subscribe to student's userStatus for real-time presence (online/offline)
-          unsubscribeUserStatus();
-          unsubscribeUserStatus = onSnapshot(
-            doc(db, 'userStatus', studentUid),
-            (docSnap) => {
-              if (active && docSnap.exists()) {
-                setUserStatus(docSnap.data() as UserStatusDocument);
-              }
-            },
-            (err) => console.error('[ParentDeviceStatus] userStatus error', err)
-          );
-
-          // 2. Subscribe to device document if deviceId is assigned
-          if (currentChild.deviceId) {
-            unsubscribeDevice();
-            unsubscribeDevice = onSnapshot(
-              doc(db, 'devices', currentChild.deviceId),
+            // 1. Subscribe to student's userStatus for real-time presence (online/offline)
+            unsubscribeUserStatus();
+            unsubscribeUserStatus = onSnapshot(
+              doc(db, 'userStatus', studentUid),
               (docSnap) => {
                 if (active && docSnap.exists()) {
-                  setDeviceDoc({ id: docSnap.id, ...docSnap.data() } as DeviceDocument);
+                  setUserStatus(docSnap.data() as UserStatusDocument);
                 }
               },
-              (err) => console.error('[ParentDeviceStatus] deviceDoc error', err)
+              (err) => console.error('[ParentDeviceStatus] userStatus error', err)
             );
+
+            // 2. Subscribe to device document if deviceId is assigned
+            if (currentChild.deviceId) {
+              unsubscribeDevice();
+              unsubscribeDevice = onSnapshot(
+                doc(db, 'devices', currentChild.deviceId),
+                (docSnap) => {
+                  if (active && docSnap.exists()) {
+                    setDeviceDoc({ id: docSnap.id, ...docSnap.data() } as DeviceDocument);
+                  }
+                },
+                (err) => console.error('[ParentDeviceStatus] deviceDoc error', err)
+              );
+            }
           }
-        }
-      });
+        },
+        profile
+      );
     };
+
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoadingPage(false);
+    }, 1500);
 
     loadData();
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       unsubscribeChildren();
       unsubscribeUserStatus();
       unsubscribeDevice();

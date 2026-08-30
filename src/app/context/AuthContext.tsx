@@ -99,12 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    let visibilityHandler: (() => void) | null = null;
+    let heartbeatInterval: any = null;
     let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       if (!firebaseUser) {
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
         setUser(null);
         setLoading(false);
         return;
@@ -121,22 +122,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
 
       // Mark user as active in Firestore
-      updateStatus(firebaseUser.uid, 'active', profile.role);
+      await setUserOnline(firebaseUser.uid, profile.role).catch(() => {});
 
-      // Visibility handler to mark inactive when user leaves page
-      visibilityHandler = () => {
-        if (document.hidden) {
-          updateStatus(firebaseUser.uid, 'inactive', profile.role);
-        } else {
-          updateStatus(firebaseUser.uid, 'active', profile.role);
-        }
-      };
-      document.addEventListener('visibilitychange', visibilityHandler);
+      // Heartbeat interval every 60 seconds while session is open
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      heartbeatInterval = setInterval(() => {
+        setUserOnline(firebaseUser.uid, profile.role).catch(() => {});
+      }, 60000);
 
       // Before unload to set inactive
       beforeUnloadHandler = () => {
-        // best-effort, may not complete before unload
-        updateStatus(firebaseUser.uid, 'inactive', profile.role);
+        setUserOffline(firebaseUser.uid).catch(() => {});
       };
       window.addEventListener('beforeunload', beforeUnloadHandler);
 
@@ -145,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       unsubscribe();
-      if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       if (beforeUnloadHandler) window.removeEventListener('beforeunload', beforeUnloadHandler);
     };
   }, []);

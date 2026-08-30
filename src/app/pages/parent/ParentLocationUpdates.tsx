@@ -43,27 +43,37 @@ export default function ParentLocationUpdates() {
         return;
       }
 
-      unsubscribeChildren = subscribeStudentsByParent(user.id, profile?.id, (updatedChildren) => {
-        if (!active) return;
-        setChildren(updatedChildren);
-        setLoadingPage(false);
+      unsubscribeChildren = subscribeStudentsByParent(
+        user.id,
+        profile?.id,
+        (updatedChildren) => {
+          if (!active) return;
+          setChildren(updatedChildren);
+          setLoadingPage(false);
 
-        if (updatedChildren.length > 0) {
-          const currentChild = updatedChildren[0];
-          const studentUid = currentChild.uid || currentChild.id;
+          if (updatedChildren.length > 0) {
+            const currentChild = updatedChildren[0];
+            const studentUid = currentChild.uid || currentChild.id;
 
-          unsubscribeHistory();
-          unsubscribeHistory = subscribeStudentLocationHistory(studentUid, (history) => {
-            if (active) setLocationHistory(history);
-          });
-        }
-      });
+            unsubscribeHistory();
+            unsubscribeHistory = subscribeStudentLocationHistory(studentUid, (history) => {
+              if (active) setLocationHistory(history);
+            });
+          }
+        },
+        profile
+      );
     };
+
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoadingPage(false);
+    }, 1500);
 
     loadData();
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       unsubscribeChildren();
       unsubscribeHistory();
     };

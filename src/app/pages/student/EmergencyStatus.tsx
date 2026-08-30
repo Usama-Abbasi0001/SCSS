@@ -27,14 +27,28 @@ export default function EmergencyStatus() {
     if (!user?.id && !user?.uid) return;
     const studentUid = user.uid || user.id;
 
-    const unsubscribe = onSnapshot(doc(db, 'students', studentUid), (snapshot) => {
-      if (snapshot.exists()) {
-        setStudent({ id: snapshot.id, ...snapshot.data() } as StudentDocument);
-      }
-    });
+    const unsubscribe = onSnapshot(
+      doc(db, 'students', studentUid),
+      async (snapshot) => {
+        if (snapshot.exists()) {
+          setStudent({ id: snapshot.id, ...snapshot.data() } as StudentDocument);
+        } else if (user.email) {
+          try {
+            const snap = await getDocs(query(collection(db, 'students'), where('email', '==', user.email)));
+            if (!snap.empty) {
+              const d = snap.docs[0];
+              setStudent({ id: d.id, ...d.data() } as StudentDocument);
+            }
+          } catch (e) {
+            console.warn('[EmergencyStatus] fallback query error', e);
+          }
+        }
+      },
+      (err) => console.error('[EmergencyStatus] listener error', err)
+    );
 
     return () => unsubscribe();
-  }, [user?.id, user?.uid]);
+  }, [user?.id, user?.uid, user?.email]);
 
   // Handle cooldown timer
   useEffect(() => {
@@ -55,7 +69,6 @@ export default function EmergencyStatus() {
     const getCoordinates = (): Promise<{ lat: number; lng: number }> => {
       return new Promise((resolve) => {
         if (!navigator.geolocation) {
-          // fallback to last known location or campus center if geolocation unsupported
           resolve({
             lat: student?.lastLocation?.lat || 24.8607,
             lng: student?.lastLocation?.lng || 67.0011
@@ -70,18 +83,31 @@ export default function EmergencyStatus() {
               lat: student?.lastLocation?.lat || 24.8607,
               lng: student?.lastLocation?.lng || 67.0011
             }),
-          { enableHighAccuracy: true, timeout: 10000 }
+          { enableHighAccuracy: true, timeout: 8000 }
         );
       });
     };
 
     try {
       const coords = await getCoordinates();
-      if (!student) throw new Error('Student record not found in Firestore.');
+      const studentUid = user?.uid || user?.id || 'student';
+      
+      const effectiveStudent: StudentDocument = student || {
+        id: studentUid,
+        uid: studentUid,
+        studentId: studentUid,
+        name: user?.name || 'Student',
+        studentName: user?.name || 'Student',
+        email: user?.email || '',
+        registrationNumber: (user as any)?.registrationNumber || 'Student',
+        parentId: (user as any)?.parentId || '',
+        parentName: (user as any)?.parentName || 'Parent',
+        deviceId: (user as any)?.deviceId || 'ESP32'
+      };
 
-      await triggerStudentSOS(student, coords);
+      await triggerStudentSOS(effectiveStudent, coords);
       setSuccessMessage('Emergency SOS alert has been broadcasted to Campus Security and your Parent!');
-      setCooldown(30); // 30 second cooldown to prevent accidental repeated clicks
+      setCooldown(15);
     } catch (err: any) {
       console.error('[EmergencyStatus] trigger SOS error', err);
       setErrorMessage(err.message || 'Failed to trigger SOS alert. Please retry.');

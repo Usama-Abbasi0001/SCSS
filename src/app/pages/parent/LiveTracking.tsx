@@ -38,29 +38,39 @@ export default function LiveTracking() {
         return;
       }
 
-      unsubscribeChildren = subscribeStudentsByParent(user.id, profile?.id, (updatedChildren) => {
-        if (!active) return;
-        if (updatedChildren.length > 0) {
-          const currentChild = updatedChildren[0];
-          setChild(currentChild);
+      unsubscribeChildren = subscribeStudentsByParent(
+        user.id,
+        profile?.id,
+        (updatedChildren) => {
+          if (!active) return;
+          if (updatedChildren.length > 0) {
+            const currentChild = updatedChildren[0];
+            setChild(currentChild);
 
-          // Subscribe to location history for this child
-          const studentUid = currentChild.uid || currentChild.id;
-          unsubscribeHistory();
-          unsubscribeHistory = subscribeStudentLocationHistory(studentUid, (history) => {
-            if (active) setLocationHistory(history);
-          });
-        } else {
-          setChild(null);
-        }
-        setLoadingPage(false);
-      });
+            // Subscribe to location history for this child
+            const studentUid = currentChild.uid || currentChild.id;
+            unsubscribeHistory();
+            unsubscribeHistory = subscribeStudentLocationHistory(studentUid, (history) => {
+              if (active) setLocationHistory(history);
+            });
+          } else {
+            setChild(null);
+          }
+          setLoadingPage(false);
+        },
+        profile
+      );
     };
+
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoadingPage(false);
+    }, 1500);
 
     loadData();
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       unsubscribeChildren();
       unsubscribeHistory();
     };

@@ -121,7 +121,8 @@ export async function fetchStudentProfile(studentId: string): Promise<StudentPro
 export function subscribeStudentsByParent(
   parentUid: string,
   parentId: string | undefined,
-  onUpdate: (children: StudentProfile[]) => void
+  onUpdate: (children: StudentProfile[]) => void,
+  parentProfile?: ParentProfile | null
 ) {
   const studentMap = new Map<string, StudentProfile>();
 
@@ -130,18 +131,21 @@ export function subscribeStudentsByParent(
     onUpdate(values);
   };
 
-  const handleSnapshot = (snapshot: any) => {
-    snapshot.docChanges().forEach((change: any) => {
-      const docData = change.doc.data() as StudentProfile;
-      const student: StudentProfile = {
-        id: change.doc.id,
-        ...(docData as Omit<StudentProfile, 'id'>)
-      };
+  // Immediate initial call so UI never gets stuck
+  updateChildren();
 
+  const handleSnapshot = (snapshot: any) => {
+    snapshot.docs.forEach((docSnap: any) => {
+      const docData = docSnap.data() as StudentProfile;
+      studentMap.set(docSnap.id, {
+        id: docSnap.id,
+        ...(docData as Omit<StudentProfile, 'id'>)
+      });
+    });
+
+    snapshot.docChanges().forEach((change: any) => {
       if (change.type === 'removed') {
         studentMap.delete(change.doc.id);
-      } else {
-        studentMap.set(change.doc.id, student);
       }
     });
 
@@ -150,30 +154,98 @@ export function subscribeStudentsByParent(
 
   const unsubs: Array<() => void> = [];
 
+  // Direct fast fetch for any known linked student IDs
+  const directStudentIds = new Set<string>();
+  if (parentProfile?.linkedStudentId) directStudentIds.add(parentProfile.linkedStudentId);
+  if (parentProfile?.studentId) directStudentIds.add(parentProfile.studentId);
+  if (Array.isArray(parentProfile?.children)) {
+    parentProfile.children.forEach((c) => c && directStudentIds.add(c));
+  }
+
+  directStudentIds.forEach(async (studentId) => {
+    try {
+      const singleDoc = await getDoc(doc(db, 'students', studentId));
+      if (singleDoc.exists()) {
+        studentMap.set(singleDoc.id, {
+          id: singleDoc.id,
+          ...(singleDoc.data() as Omit<StudentProfile, 'id'>)
+        });
+        updateChildren();
+      }
+    } catch (e) {
+      console.warn('[parentService] initial getDoc error', e);
+    }
+  });
+
   // Query 1: where parentUid == parentUid
   try {
     const q1 = query(collection(db, 'students'), where('parentUid', '==', parentUid));
-    unsubs.push(onSnapshot(q1, handleSnapshot, (err) => console.error('[parentService] q1 error', err)));
+    unsubs.push(
+      onSnapshot(
+        q1,
+        handleSnapshot,
+        (err) => {
+          console.warn('[parentService] q1 error', err);
+          updateChildren();
+        }
+      )
+    );
   } catch (e) {
     console.error(e);
+    updateChildren();
   }
 
   // Query 2: where parentId == parentUid or parentId
-  if (parentId && parentId !== parentUid) {
-    try {
-      const q2 = query(collection(db, 'students'), where('parentId', '==', parentId));
-      unsubs.push(onSnapshot(q2, handleSnapshot, (err) => console.error('[parentService] q2 error', err)));
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    try {
-      const q2 = query(collection(db, 'students'), where('parentId', '==', parentUid));
-      unsubs.push(onSnapshot(q2, handleSnapshot, (err) => console.error('[parentService] q2 error', err)));
-    } catch (e) {
-      console.error(e);
-    }
+  const targetParentId = parentId && parentId !== parentUid ? parentId : parentUid;
+  try {
+    const q2 = query(collection(db, 'students'), where('parentId', '==', targetParentId));
+    unsubs.push(
+      onSnapshot(
+        q2,
+        handleSnapshot,
+        (err) => {
+          console.warn('[parentService] q2 error', err);
+          updateChildren();
+        }
+      )
+    );
+  } catch (e) {
+    console.error(e);
+    updateChildren();
   }
 
-  return () => unsubs.forEach((unsub) => unsub());
+  // Direct Doc Listener 3: If parent document has linkedStudentId or studentId or children
+  directStudentIds.forEach((studentId) => {
+    try {
+      const docUnsub = onSnapshot(
+        doc(db, 'students', studentId),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            studentMap.set(docSnap.id, {
+              id: docSnap.id,
+              ...(docSnap.data() as Omit<StudentProfile, 'id'>)
+            });
+            updateChildren();
+          }
+        },
+        (err) => {
+          console.warn('[parentService] direct doc listener error', err);
+          updateChildren();
+        }
+      );
+      unsubs.push(docUnsub);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  // Safety fallback: if no child found in 2 seconds, refresh
+  const timer = setTimeout(() => {
+    updateChildren();
+  }, 1500);
+
+  return () => {
+    clearTimeout(timer);
+    unsubs.forEach((unsub) => unsub());
+  };
 }

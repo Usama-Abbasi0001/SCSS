@@ -32,12 +32,19 @@ export default function ParentNotifications() {
     const recipientId = user.uid || user.id;
     setLoadingList(true);
 
+    const fallbackTimer = setTimeout(() => {
+      setLoadingList(false);
+    }, 1500);
+
     const unsubscribe = subscribeNotifications(recipientId, (notifs) => {
       setNotifications(notifs);
       setLoadingList(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(fallbackTimer);
+      unsubscribe();
+    };
   }, [user?.id, user?.uid]);
 
   const handleMarkRead = async (id: string) => {

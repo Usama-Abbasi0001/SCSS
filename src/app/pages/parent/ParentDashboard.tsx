@@ -56,30 +56,40 @@ export default function ParentDashboard() {
         return;
       }
 
-      unsubscribeChildren = subscribeStudentsByParent(user.id, profile?.id, (updatedChildren) => {
-        if (!active) return;
-        setChildren(updatedChildren);
-        setLoadingDashboard(false);
+      unsubscribeChildren = subscribeStudentsByParent(
+        user.id,
+        profile?.id,
+        (updatedChildren) => {
+          if (!active) return;
+          setChildren(updatedChildren);
+          setLoadingDashboard(false);
 
-        if (updatedChildren.length > 0) {
-          const childId = updatedChildren[0].uid || updatedChildren[0].id;
-          unsubscribeAlerts();
-          const q = query(collection(db, 'alerts'), where('studentId', '==', childId));
-          unsubscribeAlerts = onSnapshot(q, (snapshot) => {
-            if (active) {
-              const alerts = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AlertDocument);
-              alerts.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-              setChildAlerts(alerts);
-            }
-          });
-        }
-      });
+          if (updatedChildren.length > 0) {
+            const childId = updatedChildren[0].uid || updatedChildren[0].id;
+            unsubscribeAlerts();
+            const q = query(collection(db, 'alerts'), where('studentId', '==', childId));
+            unsubscribeAlerts = onSnapshot(q, (snapshot) => {
+              if (active) {
+                const alerts = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AlertDocument);
+                alerts.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+                setChildAlerts(alerts);
+              }
+            });
+          }
+        },
+        profile
+      );
     };
+
+    const fallbackTimer = setTimeout(() => {
+      if (active) setLoadingDashboard(false);
+    }, 1500);
 
     loadDashboard();
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       unsubscribeChildren();
       unsubscribeAlerts();
     };

@@ -148,8 +148,8 @@ export default function StudentsList() {
                     <td className="px-6 py-5">
                       {(() => {
                         const uid = (student.uid || student.id || '').toString();
-                        const statusObj = statuses[uid];
-                        const isActive = statusObj?.status === 'active';
+                        const statusObj = statuses[uid] || statuses[student.id];
+                        const isActive = statusObj?.status === 'active' || statusObj?.isOnline === true || (student as any).status === 'active';
                         return (
                           <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${isActive ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300'}`}>
                             <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-gray-500'}`} />

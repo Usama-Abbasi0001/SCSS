@@ -137,6 +137,22 @@ export default function CreateStudent() {
         { merge: true }
       );
 
+      // Initialize location record
+      await setDoc(
+        doc(db, 'locations', uid),
+        {
+          studentId: uid,
+          studentName: formData.name.trim(),
+          registrationNumber: formData.registrationNumber.trim(),
+          latitude: 24.8607,
+          longitude: 67.0011,
+          googleMapsUrl: 'https://www.google.com/maps?q=24.8607,67.0011',
+          timestamp: new Date().toLocaleString(),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+
       // Link to selected parent
       if (formData.parentId) {
         const parentRef = doc(db, 'parents', formData.parentId);
@@ -148,6 +164,10 @@ export default function CreateStudent() {
           studentId: uid,
           studentName: formData.name.trim(),
           children: arrayUnion(uid)
+        }).catch(() => {});
+
+        await updateDoc(doc(db, 'users', parentUid), {
+          linkedStudentId: uid
         }).catch(() => {});
 
         await updateDoc(studentDocRef, {
