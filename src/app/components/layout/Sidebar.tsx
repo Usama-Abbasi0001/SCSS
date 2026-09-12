@@ -13,7 +13,8 @@ import {
   Shield,
   Database,
   Activity,
-  Cpu
+  Cpu,
+  ShieldAlert
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -32,6 +33,7 @@ interface SidebarProps {
 const roleLinks: Record<string, SidebarLink[]> = {
   admin: [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { name: 'Harassment', path: '/admin/harassment', icon: ShieldAlert },
     { name: 'Students', path: '/admin/students', icon: Users },
     { name: 'Parents', path: '/admin/parents', icon: Users },
     { name: 'Create Student', path: '/admin/create-student', icon: UserPlus },
@@ -42,6 +44,7 @@ const roleLinks: Record<string, SidebarLink[]> = {
   ],
   student: [
     { name: 'Dashboard', path: '/student', icon: LayoutDashboard },
+    { name: 'Harassment', path: '/student/harassment', icon: ShieldAlert },
     { name: 'Profile', path: '/student/profile', icon: User },
     { name: 'Emergency Status', path: '/student/emergency', icon: AlertTriangle },
     { name: 'Location', path: '/student/location', icon: MapPin },
@@ -49,6 +52,7 @@ const roleLinks: Record<string, SidebarLink[]> = {
   ],
   parent: [
     { name: 'Dashboard', path: '/parent', icon: LayoutDashboard },
+    { name: 'Harassment Alerts', path: '/parent/harassment', icon: ShieldAlert },
     { name: 'My Child', path: '/parent/child', icon: User },
     { name: 'Live Tracking', path: '/parent/tracking', icon: MapPin },
     { name: 'Alerts', path: '/parent/alerts', icon: AlertTriangle },

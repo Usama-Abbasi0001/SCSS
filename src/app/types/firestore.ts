@@ -126,3 +126,21 @@ export interface UserStatusDocument {
   lastLogin?: any;
   role?: string;
 }
+
+export interface HarassmentIncidentDocument {
+  id: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  department?: string;
+  className?: string;
+  parentId?: string;
+  incidentType: string;
+  location: string;
+  description: string;
+  dateTime: string;
+  status: 'pending' | 'under_review' | 'resolved';
+  evidenceUrl?: string;
+  createdAt: any;
+  updatedAt: any;
+}

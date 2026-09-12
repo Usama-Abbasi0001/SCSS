@@ -17,12 +17,14 @@ import ActiveDevices from './pages/admin/ActiveDevices';
 import ActiveAlerts from './pages/admin/ActiveAlerts';
 import LiveAlerts from './pages/admin/LiveAlerts';
 import SetupFirestore from './pages/admin/SetupFirestore';
+import AdminHarassmentDashboard from './pages/admin/HarassmentDashboard';
 
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentProfile from './pages/student/StudentProfile';
 import EmergencyStatus from './pages/student/EmergencyStatus';
 import StudentLocation from './pages/student/StudentLocation';
 import StudentAlerts from './pages/student/StudentAlerts';
+import StudentHarassmentReport from './pages/student/HarassmentReport';
 
 import ParentDashboard from './pages/parent/ParentDashboard';
 import MyChild from './pages/parent/MyChild';
@@ -31,6 +33,7 @@ import ParentAlerts from './pages/parent/ParentAlerts';
 import ParentNotifications from './pages/parent/ParentNotifications';
 import ParentDeviceStatus from './pages/parent/ParentDeviceStatus';
 import ParentLocationUpdates from './pages/parent/ParentLocationUpdates';
+import ParentHarassmentAlerts from './pages/parent/ParentHarassmentAlerts';
 
 export default function App() {
   function HomeRedirect() {
@@ -80,6 +83,7 @@ export default function App() {
                     <Route path="active-alerts" element={<ActiveAlerts />} />
                     <Route path="alerts" element={<LiveAlerts />} />
                     <Route path="setup-firestore" element={<SetupFirestore />} />
+                    <Route path="harassment" element={<AdminHarassmentDashboard />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
@@ -98,6 +102,7 @@ export default function App() {
                     <Route path="emergency" element={<EmergencyStatus />} />
                     <Route path="location" element={<StudentLocation />} />
                     <Route path="alerts" element={<StudentAlerts />} />
+                    <Route path="harassment" element={<StudentHarassmentReport />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
@@ -118,6 +123,7 @@ export default function App() {
                     <Route path="notifications" element={<ParentNotifications />} />
                     <Route path="device-status" element={<ParentDeviceStatus />} />
                     <Route path="location-updates" element={<ParentLocationUpdates />} />
+                    <Route path="harassment" element={<ParentHarassmentAlerts />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>

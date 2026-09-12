@@ -206,5 +206,23 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
+    // ==========================================
+    // 11. HARASSMENT INCIDENTS
+    // ==========================================
+    match /harassment_incidents/{incidentId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.studentId == request.auth.uid || 
+        resource.data.parentId == request.auth.uid || 
+        isParent() && resource.data.parentId == request.auth.uid // Redundant but explicit
+      );
+      allow create: if isSignedIn() && (
+        isAdmin() || 
+        (isStudent() && request.resource.data.studentId == request.auth.uid)
+      );
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

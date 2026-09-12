@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    match /evidence/{fileName} {
+      // Anyone signed in can read evidence
+      allow read: if isSignedIn();
+      
+      // Only signed in users can upload, file must be image, size < 5MB
+      allow create: if isSignedIn() 
+                    && request.resource.contentType.matches('image/.*')
+                    && request.resource.size < 5 * 1024 * 1024;
+                    
+      // No updates or deletes allowed from client side for evidence
+      allow update, delete: if false;
+    }
+  }
+}
