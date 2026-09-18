@@ -147,14 +147,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    const profile = await loadUserProfile(credential.user);
-    if (!profile) {
-      throw new Error('User profile not found in Firestore.');
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const profile = await loadUserProfile(credential.user);
+      if (!profile) {
+        throw new Error('User profile not found in Firestore.');
+      }
+      await setUserOnline(credential.user.uid, profile.role);
+      setUser(profile);
+      return profile;
+    } catch (error: any) {
+      // Auto-create demo accounts if they don't exist
+      if (
+        error.code === 'auth/invalid-credential' || 
+        error.code === 'auth/user-not-found' || 
+        error.code === 'auth/wrong-password'
+      ) {
+        const isDemoAdmin = email === 'admin@demo.com' && password === 'admin123';
+        const isDemoStudent = email === 'student@demo.com' && password === 'student123';
+        const isDemoParent = email === 'parent@demo.com' && password === 'parent123';
+        
+        if (isDemoAdmin || isDemoStudent || isDemoParent) {
+          console.log('[Auth] Auto-creating missing demo account for', email);
+          try {
+            const role = isDemoAdmin ? 'admin' : isDemoStudent ? 'student' : 'parent';
+            const name = role.charAt(0).toUpperCase() + role.slice(1) + ' Demo';
+            
+            // Try to create the demo user directly
+            const credential = await createUserWithEmailAndPassword(auth, email, password);
+            
+            const baseProfile: any = {
+              uid: credential.user.uid,
+              name,
+              email,
+              role,
+              status: 'active',
+              createdAt: serverTimestamp()
+            };
+            
+            await setDoc(doc(db, 'users', credential.user.uid), baseProfile);
+            await setUserOnline(credential.user.uid, role);
+            
+            const profile = { id: credential.user.uid, ...baseProfile, createdAt: new Date() };
+            setUser(profile as UserProfile);
+            return profile as UserProfile;
+          } catch (createError) {
+             console.error('[Auth] Failed to auto-create demo user:', createError);
+             throw error; // Throw original login error if creation fails
+          }
+        }
+      }
+      throw error;
     }
-    await setUserOnline(credential.user.uid, profile.role);
-    setUser(profile);
-    return profile;
   }; 
 
   const signup = async (

@@ -132,6 +132,46 @@ export default function Login() {
               </Link>
             </p>
           </div>
+
+          {/* Demo Credentials */}
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <p className="text-sm text-gray-400 text-center mb-4">Demo Accounts for Reviewers</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  formik.setFieldValue('email', 'admin@demo.com');
+                  formik.setFieldValue('password', 'admin123');
+                }}
+                className="py-2 px-2 bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 border border-white/10 hover:border-blue-500/30 rounded-lg text-xs text-gray-300 transition-all"
+              >
+                <div className="font-semibold">Admin</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  formik.setFieldValue('email', 'student@demo.com');
+                  formik.setFieldValue('password', 'student123');
+                }}
+                className="py-2 px-2 bg-white/5 hover:bg-green-500/20 hover:text-green-400 border border-white/10 hover:border-green-500/30 rounded-lg text-xs text-gray-300 transition-all"
+              >
+                <div className="font-semibold">Student</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  formik.setFieldValue('email', 'parent@demo.com');
+                  formik.setFieldValue('password', 'parent123');
+                }}
+                className="py-2 px-2 bg-white/5 hover:bg-purple-500/20 hover:text-purple-400 border border-white/10 hover:border-purple-500/30 rounded-lg text-xs text-gray-300 transition-all"
+              >
+                <div className="font-semibold">Parent</div>
+              </button>
+            </div>
+            <div className="mt-3 text-[11px] text-gray-500 text-center">
+              Click a role above to auto-fill dummy credentials
+            </div>
+          </div>
         </div>
 
         {/* Footer */}

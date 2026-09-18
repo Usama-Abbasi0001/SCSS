@@ -138,6 +138,46 @@ export default function Login() {
               </Link>
             </p>
           </div>
+
+          {/* Demo Credentials */}
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <p className="text-sm text-gray-400 text-center mb-4">Demo Accounts (For Recruiters)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('admin@demo.com');
+                  setPassword('admin123');
+                }}
+                className="py-2 px-2 bg-slate-900/50 hover:bg-blue-500/20 hover:text-blue-400 border border-white/10 hover:border-blue-500/30 rounded-xl text-xs text-gray-300 transition-all flex flex-col items-center justify-center"
+              >
+                <span className="font-semibold">Admin</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('student@demo.com');
+                  setPassword('student123');
+                }}
+                className="py-2 px-2 bg-slate-900/50 hover:bg-green-500/20 hover:text-green-400 border border-white/10 hover:border-green-500/30 rounded-xl text-xs text-gray-300 transition-all flex flex-col items-center justify-center"
+              >
+                <span className="font-semibold">Student</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('parent@demo.com');
+                  setPassword('parent123');
+                }}
+                className="py-2 px-2 bg-slate-900/50 hover:bg-purple-500/20 hover:text-purple-400 border border-white/10 hover:border-purple-500/30 rounded-xl text-xs text-gray-300 transition-all flex flex-col items-center justify-center"
+              >
+                <span className="font-semibold">Parent</span>
+              </button>
+            </div>
+            <p className="mt-3 text-[11px] text-gray-500 text-center">
+              Click a role above to auto-fill dummy credentials
+            </p>
+          </div>
         </div>
       </div>
     </div>
